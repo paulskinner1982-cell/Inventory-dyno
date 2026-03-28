@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blast Load Calculator Pro</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body{font-family:Arial;margin:0;background:#0f172a;color:white}
+.container{max-width:520px;margin:auto;padding:18px}
+h1{font-size:28px;margin-bottom:6px}
+.sub{color:#94a3b8;margin-bottom:12px}
+.card{background:#1e293b;padding:16px;border-radius:16px;margin-top:12px}
+input{width:100%;padding:20px;font-size:28px;border-radius:12px;border:none;margin-top:8px}
+button{width:100%;padding:20px;font-size:22px;border-radius:14px;border:none;margin-top:10px}
+.calc{background:#22c55e;color:white}
+.clear{background:#334155;color:white}
+.preset{background:#2563eb}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.result{font-size:26px;margin-top:6px}
+.label{color:#94a3b8;font-size:12px;text-transform:uppercase}
+.sheet{font-size:18px;line-height:1.4}
+.history{font-size:16px;margin-top:6px}
+.sun{background:#f8fafc;color:#111}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Blast Load Calculator Pro</h1>
+<div class="sub">Start fixed: 5 inches = 7495 kg • Density 1.32</div>
+
+<div class="card">
+<div class="label">Target Loaded KG</div>
+<input id="target" type="number" placeholder="Enter target kg" oninput="calc()">
+
+<div class="row">
+<button class="preset" onclick="setTarget(9000)">9000</button>
+<button class="preset" onclick="setTarget(9500)">9500</button>
+<button class="preset" onclick="setTarget(10000)">10000</button>
+<button class="preset" onclick="setTarget(10500)">10500</button>
+</div>
+
+<button class="calc" onclick="calc()">Calculate</button>
+<button class="clear" onclick="clearAll()">Clear</button>
+<button onclick="toggleSun()">Outdoor Mode</button>
+</div>
+
+<div class="card">
+<div class="label">Tank Reading Start</div>
+<div class="result">5 inches = 7495 kg</div>
+</div>
+
+<div class="card">
+<div class="label">Tank Reading End</div>
+<div id="end" class="result">-</div>
+</div>
+
+<div class="card">
+<div class="label">Loaded (A - B)</div>
+<div id="loaded" class="result">-</div>
+</div>
+
+<div class="card">
+<div class="label">C = Loaded × 1.32</div>
+<div id="final" class="result">-</div>
+<div id="diff"></div>
+</div>
+
+<div class="card sheet">
+<div class="label">Blast Sheet Output</div>
+<div id="sheetStart">Tank Reading Start: 5 inches = 7495 kgs</div>
+<div id="sheetEnd">Tank Reading End: -</div>
+<div id="sheetLoaded">Loaded (A minus B): -</div>
+<div>Density: 1.32</div>
+<div id="sheetC">C = Loaded × 1.32 = -</div>
+</div>
+
+<div class="card">
+<div class="label">Last Loads</div>
+<div id="history" class="history"></div>
+</div>
+
+</div>
+
+<script>
+const START_KG=7495
+const DENSITY=1.32
+
+const chart=[
+{inch:61,kg:31},{inch:60.5,kg:62},{inch:60,kg:93},{inch:59.5,kg:120},
+{inch:59,kg:148},{inch:58.5,kg:186},{inch:58,kg:224},{inch:57.5,kg:262},
+{inch:57,kg:300},{inch:56.5,kg:341},{inch:56,kg:383},{inch:55.5,kg:424},
+{inch:55,kg:466},{inch:54.5,kg:516},{inch:54,kg:567},{inch:53.5,kg:621},
+{inch:53,kg:676},{inch:52.5,kg:733},{inch:52,kg:791},{inch:51.5,kg:847},
+{inch:51,kg:904},{inch:50.5,kg:961},{inch:50,kg:1019}
+]
+
+function setTarget(v){
+document.getElementById('target').value=v
+calc()
+}
+
+function calc(){
+let t=parseFloat(document.getElementById('target').value)
+if(!t)return
+
+let required=t/DENSITY
+let idealEnd=START_KG-required
+
+let best=chart[0]
+let diff=Math.abs(best.kg-idealEnd)
+
+chart.forEach(r=>{
+let d=Math.abs(r.kg-idealEnd)
+if(d<diff){best=r;diff=d}
+})
+
+let loaded=START_KG-best.kg
+let final=loaded*DENSITY
+let variance=final-t
+
+let endTxt=`${best.inch} inches = ${best.kg} kg`
+let loadTxt=`7495 - ${best.kg} = ${loaded}`
+let finalTxt=`${final.toFixed(0)} kg`
+
+ document.getElementById('end').innerText=endTxt
+ document.getElementById('loaded').innerText=loadTxt
+ document.getElementById('final').innerText=finalTxt
+ document.getElementById('diff').innerText="Difference from target: "+variance.toFixed(1)
+
+ document.getElementById('sheetEnd').innerText="Tank Reading End: "+endTxt
+ document.getElementById('sheetLoaded').innerText="Loaded (A minus B): "+loadTxt
+ document.getElementById('sheetC').innerText="C = "+loaded+" × 1.32 = "+final.toFixed(2)
+
+ saveHistory(t,finalTxt,endTxt)
+}
+
+function clearAll(){
+ document.getElementById('target').value=''
+ document.getElementById('end').innerText='-'
+ document.getElementById('loaded').innerText='-'
+ document.getElementById('final').innerText='-'
+ document.getElementById('diff').innerText=''
+}
+
+function toggleSun(){
+ document.body.classList.toggle('sun')
+}
+
+function saveHistory(target,final,end){
+ let h=JSON.parse(localStorage.getItem('blastHistory')||'[]')
+ h.unshift(`Target ${target} → ${end} → ${final}`)
+ if(h.length>5)h.pop()
+ localStorage.setItem('blastHistory',JSON.stringify(h))
+ renderHistory()
+}
+
+function renderHistory(){
+ let h=JSON.parse(localStorage.getItem('blastHistory')||'[]')
+ document.getElementById('history').innerHTML=h.join('<br>')
+}
+
+renderHistory()
+
+if('serviceWorker' in navigator){
+ navigator.serviceWorker.register('sw.js').catch(()=>{})
+}
+
+</script>
+</body>
+</html>
